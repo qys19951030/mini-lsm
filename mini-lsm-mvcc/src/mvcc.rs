@@ -16,6 +16,7 @@
 #![allow(dead_code)] // TODO(you): remove this lint after implementing this mod
 
 pub mod txn;
+pub mod version_history;
 pub mod watermark;
 
 use std::{
