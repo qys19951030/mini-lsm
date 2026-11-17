@@ -14,6 +14,7 @@
 
 mod harness;
 mod release_regressions;
+mod version_history;
 mod week1_day1;
 mod week1_day2;
 mod week1_day3;
