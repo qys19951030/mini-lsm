@@ -25,7 +25,7 @@ use crate::mem_table::MemTableIterator;
 use crate::table::SsTableIterator;
 
 /// Represents the internal type for an LSM iterator. This type will be changed across the course for multiple times.
-type LsmIteratorInner = TwoMergeIterator<
+pub(crate) type LsmIteratorInner = TwoMergeIterator<
     TwoMergeIterator<MergeIterator<MemTableIterator>, MergeIterator<SsTableIterator>>,
     MergeIterator<SstConcatIterator>,
 >;

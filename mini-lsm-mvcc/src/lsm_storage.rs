@@ -33,7 +33,7 @@ use crate::iterators::concat_iterator::SstConcatIterator;
 use crate::iterators::merge_iterator::MergeIterator;
 use crate::iterators::two_merge_iterator::TwoMergeIterator;
 use crate::key::{self, KeySlice};
-use crate::lsm_iterator::{FusedIterator, LsmIterator};
+use crate::lsm_iterator::{FusedIterator, LsmIterator, LsmIteratorInner};
 use crate::manifest::{Manifest, ManifestRecord};
 use crate::mem_table::{MemTable, map_bound, map_key_bound_plus_ts};
 use crate::mvcc::LsmMvccInner;
@@ -829,6 +829,32 @@ impl LsmStorageInner {
         upper: Bound<&[u8]>,
         read_ts: u64,
     ) -> Result<FusedIterator<LsmIterator>> {
+        let iter = self.scan_inner(lower, upper, read_ts)?;
+        Ok(FusedIterator::new(LsmIterator::new(
+            iter,
+            map_bound(upper),
+            read_ts,
+        )?))
+    }
+
+    /// Scan the storage and return the raw merged iterator that yields every version of every key
+    /// in the range, ordered by (key, ts descending). Unlike [`LsmIterator`], no version
+    /// collapsing, visibility filtering, or end-bound checks are applied; callers are responsible
+    /// for filtering by timestamp and enforcing the upper bound.
+    pub(crate) fn scan_all_versions(
+        &self,
+        lower: Bound<&[u8]>,
+        upper: Bound<&[u8]>,
+    ) -> Result<LsmIteratorInner> {
+        self.scan_inner(lower, upper, key::TS_RANGE_BEGIN)
+    }
+
+    fn scan_inner(
+        &self,
+        lower: Bound<&[u8]>,
+        upper: Bound<&[u8]>,
+        read_ts: u64,
+    ) -> Result<LsmIteratorInner> {
         let snapshot = {
             let guard = self.state.read();
             Arc::clone(&guard)
@@ -914,10 +940,6 @@ impl LsmStorageInner {
         let iter = TwoMergeIterator::create(memtable_iter, l0_iter)?;
         let iter = TwoMergeIterator::create(iter, MergeIterator::create(level_iters))?;
 
-        Ok(FusedIterator::new(LsmIterator::new(
-            iter,
-            map_bound(upper),
-            read_ts,
-        )?))
+        Ok(iter)
     }
 }
